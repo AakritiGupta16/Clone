@@ -1,10 +1,52 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Chatbot</title>
     <style>
+        body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+}
+
+#container {
+    text-align: center;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: white;
+}
+
+#speakBtn {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #007bff;
+    color: white;
+}
+
+#response {
+    margin-top: 20px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-height: 50px;
+    word-wrap: break-word;
+}
+
+#aiAudio {
+    margin-top: 20px;
+    width: 100%;
+}
+
         body {
             font-family: Arial, sans-serif;
             display: flex;
@@ -34,3 +76,166 @@
         }
     </style>
 </head>
+<body>
+    hi..
+</body>
+<script>
+    // Speech Recognition Setup
+    const speechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new speechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    // Elements
+    const speakButton = document.getElementById('speakBtn');
+    const responseDiv = document.getElementById('response');
+    const aiAudio = document.getElementById('aiAudio');
+
+    // Event Listener for Speak Button
+    speakButton.addEventListener('click', () => {
+        recognition.start();
+    });
+
+    // Handling Speech Recognition Result
+    recognition.onresult = async (event) => {
+        const speechToText = event.results[0][0].transcript;
+        try {
+            // Send to Backend, which forwards to OpenAI API
+            const aiResponse = await sendToBackend(speechToText, 'openai');
+            responseDiv.textContent = aiResponse;
+
+            // Send to Backend, which forwards to Play.ht for Speech Synthesis
+            const audioUrl = await sendToBackend(aiResponse, 'playht');
+            aiAudio.src = audioUrl;
+            aiAudio.play();
+        } catch (error) {
+            console.error('Error:', error);
+            responseDiv.textContent = 'Sorry, an error occurred.';
+        }
+    };
+
+    // Function to Send Text to Backend
+    async function sendToBackend(text, endpoint) {
+        const response = await fetch(`http://localhost:3000/${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: text })
+        });
+
+        const data = await response.json();
+        return endpoint === 'openai' ? data.choices[0].message.content : data.audio_url;
+    }
+</script> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech to Text App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: white;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 50px;
+            word-wrap: break-word;
+        }
+        #aiAudio {
+            margin-top: 20px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <button id="speakBtn">Speak to AI</button>
+        <div id="response">Response will appear here...</div>
+        <audio id="aiAudio" controls></audio>
+    </div>
+    <script>
+        // Speech Recognition Setup
+        const speechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new speechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+    
+        // Elements
+        const speakButton = document.getElementById('speakBtn');
+        const responseDiv = document.getElementById('response');
+        const aiAudio = document.getElementById('aiAudio');
+    
+        // Event Listener for Speak Button
+        speakButton.addEventListener('click', () => {
+            recognition.start();
+        });
+    
+        // Handling Speech Recognition Result
+        recognition.onresult = async (event) => {
+            if (!event.results || event.results.length === 0 || !event.results[0][0]) {
+                console.error("No speech result available");
+                responseDiv.textContent = 'No speech result available';
+                return;
+            }
+    
+            const speechToText = event.results[0][0].transcript;
+            let aiResponse;
+    
+            try {
+                const aiResponse = await sendToBackend(speechToText, 'openai');
+                console.log(aiResponse);
+
+                if (aiResponse && aiResponse.choices && aiResponse.choices.length > 0) {
+                    const messageContent = aiResponse.choices[0].message.content;
+                    responseDiv.textContent = messageContent;
+                } else {
+                    throw new Error("Invalid response structure from AI");
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                responseDiv.textContent = error.message || 'Sorry, an error occurred.';
+            }
+        };
+    
+        // Function to Send Text to Backend
+        async function sendToBackend(text, endpoint) {
+            const requestBody = {
+                messages: [
+                    {
+                        role: "user",
+                        content: text
+                    }
+                ]
+            };
+            const response = await fetch(`http://localhost:3000/${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: text })
+            });
+    
+            const data = await response.json();
+            return endpoint === 'openai' ? data : data.audio_url;
+        }
+    </script>    
+</body>
+</html>
